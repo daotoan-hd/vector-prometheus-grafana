@@ -1,0 +1,76 @@
+version: '3.3'
+services:
+  vector:
+    container_name: vector
+    volumes:
+      - '$PWD/vector.toml:/etc/vector/vector.toml:ro'
+    ports:
+      - '8686:8686'
+    image: 'timberio/vector:0.25.2-debian'
+  node-exporter:
+    image: prom/node-exporter:latest
+    container_name: node-exporter
+    restart: unless-stopped
+    volumes:
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /:/rootfs:ro
+    command:
+      - '--path.procfs=/host/proc'
+      - '--path.rootfs=/rootfs'
+      - '--path.sysfs=/host/sys'
+      - '--collector.filesystem.mount-points-exclude=^/(sys|proc|dev|host|etc)($$|/)'
+    ports:
+      - '9100:9100'
+
+  prometheus-source:
+    image: prom/prometheus:latest
+    container_name: prometheus-source
+    restart: unless-stopped
+    volumes:
+      - ./prometheus-source.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data-source:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    ports:
+      - '9090:9090'
+  
+  nginx:
+    container_name: nginx
+    image: nginx
+  
+  prometheus-sink:
+    image: prom/prometheus:latest
+    container_name: prometheus-sink
+    restart: unless-stopped
+    volumes:
+      - ./prometheus-sink.yml:/etc/prometheus/prometheus.yml
+      - prometheus-data-sink:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    ports:
+      - '9091:9090'
+
+  grafana:
+    image: grafana/grafana
+    container_name: grafana
+    ports:
+      - 3000:3000
+    restart: unless-stopped
+    volumes:
+      # - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - grafana-data:/var/lib/grafana
+      
+volumes:
+  grafana-data:
+  prometheus-data-sink:
+  prometheus-data-source:
